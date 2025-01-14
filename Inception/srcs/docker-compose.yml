@@ -1,0 +1,73 @@
+
+networks:
+  inception:
+    name: inception
+    driver: bridge
+
+
+services: 
+  my_mariadb:
+    build:
+      context: .
+      dockerfile: ./requirements/mariadb/Dockerfile
+      args:
+        MYSQL_DATABASE: ${MYSQL_DATABASE}
+        MYSQL_USER: ${MYSQL_USER}
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    image: my_mariadb
+    container_name: my_mariadb
+    ports:
+      - "3306:3306"
+    networks:
+      - inception
+    volumes:
+      - db-volume:/var/lib/mysql
+    restart: always
+
+  my_wordpress:
+    build:
+      context: .
+      dockerfile: ./requirements/wordpress/Dockerfile
+    image: my_wordpress
+    container_name: my_wordpress
+    env_file:
+      - .env
+    depends_on:
+      - my_mariadb
+    volumes:
+      - wp-volume:/var/www/wordpress
+    networks:
+      - inception
+    restart: always
+
+  my_nginx:
+    build:
+      context: .
+      dockerfile: ./requirements/nginx/Dockerfile
+    image: my_nginx
+    container_name: my_nginx
+    depends_on: 
+      - my_wordpress
+    ports:
+      - 443:443
+    volumes:
+      # - ./requirements/nginx/conf:/etc/nginx/conf.d
+      - wp-volume:/var/www/wordpress
+    networks:
+      - inception
+    restart: always
+
+volumes:
+  wp-volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/${USER}/data/wordpress
+      o: bind
+  db-volume:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/${USER}/data/mariadb
+      o: bind
